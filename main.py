@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from supabase import create_client, Client
 from statsforecast import StatsForecast
 from statsforecast.models import CrostonOptimized
@@ -10,8 +10,8 @@ from statsforecast.models import CrostonOptimized
 
 @st.cache_resource
 def init_connection():
-    url: str = st.secrets['supbase_url']
-    key: str = st.secrets['supbase_key']
+    url: str = st.secrets['supabase_url']
+    key: str = st.secrets['supabase_key']
 
     client: Client = create_client(url, key)
 
@@ -39,24 +39,36 @@ def create_dataframe():
 
     return df
 
-
 @st.cache_data
 def plot_volume(ids):
     fig, ax = plt.subplots()
-
+    
     df['volume'] = df['volume'].astype(int)
-
-    x = df[df["parts_id"] == 2674]['date']
-
+    
+    # Loop through the ids to plot each one
     for id in ids:
-        ax.plot(x,
-                df[df['parts_id'] == id]['volume'], label=id)
+        product_df = df[df['parts_id'] == id]
+        x = product_df['date']
+        y = product_df['volume']
+        
+        # Debug print statements
+        print(f"Plotting for ID {id}")
+        print(f"x length: {len(x)}")
+        print(f"y length: {len(y)}")
+        
+        # Ensure x and y have the same length
+        if len(x) != len(y):
+            # This could be logged or handled more gracefully
+            print(f"Warning: x and y lengths do not match for ID {id}")
+            continue
+        
+        ax.plot(x, y, label=id)
+    
     ax.xaxis.set_major_locator(plt.MaxNLocator(10))
     ax.legend(loc='best')
     fig.autofmt_xdate()
 
     st.pyplot(fig)
-
 
 @st.cache_data
 def format_dataset(ids):
@@ -75,7 +87,7 @@ def create_sf_object(model_df):
     sf = StatsForecast(
         df=model_df,
         models=models,
-        freq='MS',  
+        freq='MS',
         n_jobs=-1
     )
 
@@ -92,6 +104,7 @@ def make_predictions(ids, horizon):
     forecast_df = sf.forecast(h=horizon)
 
     return forecast_df.to_csv(header=True)
+
 
 if __name__ == "__main__":
     st.title("Forecast product demand")
@@ -120,4 +133,3 @@ if __name__ == "__main__":
                     file_name="predictions.csv",
                     mime="text/csv"
                 )
-                
